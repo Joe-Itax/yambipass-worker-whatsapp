@@ -1,0 +1,7 @@
+allowBuilds:
+  '@prisma/engines': true
+  '@whiskeysockets/baileys': true
+  esbuild: true
+  prisma: true
+  protobufjs: true
+  sharp: true

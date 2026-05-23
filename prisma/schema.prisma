@@ -1,0 +1,279 @@
+// // This is your Prisma schema file,
+// // learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// // Get a free hosted Postgres database in seconds: `npx create-db`
+
+// generator client {
+//   provider = "prisma-client"
+//   output   = "../src/generated/prisma"
+// }
+
+// datasource db {
+//   provider = "postgresql"
+// }
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ----------------------------
+//          USER
+// ----------------------------
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  name           String?
+  password       String?
+  role           UserRole     @default(USER)
+  searchableName String       @default("")
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  invitations    Invitation[]
+
+  emailVerified Boolean @default(false)
+  image         String?
+
+  sessions       Session[]
+  accounts       Account[]
+  assignedEvents EventAssignment[]
+  createdEvents  Event[]           @relation("EventCreator")
+
+  @@map("user")
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+// ----------------------------
+//          EVENT
+// ----------------------------
+model Event {
+  id                Int               @id @default(autoincrement())
+  name              String
+  description       String
+  date              DateTime // Sera Date + Heure
+  durationHours     Int               @default(24)
+  location          String
+  fullLocation      String?
+  invitationMessage String?
+  eventCode         String            @unique // event_name_bdIdEvent
+  status            EventStatus       @default(UPCOMING)
+  createdById       String
+  createdBy         User              @relation("EventCreator", fields: [createdById], references: [id])
+  assignments       EventAssignment[]
+  tables            Table[]
+  invitations       Invitation[]
+  stats             EventStats?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  terminals         Terminal[]
+  deletedAt         DateTime?
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  FINISHED
+  CANCELLED
+}
+
+// ----------------------------
+//      EVENT ASSIGNMENT
+// ----------------------------
+model EventAssignment {
+  id         Int      @id @default(autoincrement())
+  userId     String
+  eventId    Int
+  user       User     @relation(fields: [userId], references: [id])
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+}
+
+// ----------------------------
+//           TABLE
+// ----------------------------
+model Table {
+  id          Int               @id @default(autoincrement())
+  name        String
+  capacity    Int // max number of seats
+  eventId     Int
+  event       Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  allocations TableAllocation[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([eventId, name])
+  @@map("table")
+}
+
+// ----------------------------
+//   TABLE <-> INVITATION LINK
+// ----------------------------
+model TableAllocation {
+  id            Int @id @default(autoincrement())
+  invitationId  Int
+  tableId       Int
+  seatsAssigned Int // how many seats used for this invitation on this table
+
+  invitation Invitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  table      Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([invitationId, tableId])
+}
+
+// ----------------------------
+//          INVITATION
+// ----------------------------
+model Invitation {
+  id          Int    @id @default(autoincrement())
+  label       String // ex: "Joe Itax" ou "Couple Mutombo" ou "École Le Savoir"
+  peopleCount Int    @default(1) // ex: 1, 2, 14 ...
+
+  email          String? // Optionnel
+  whatsapp       String? // Optionnel (Format international recommandé : +243...)
+  isSentEmail    Boolean @default(false)
+  isSentWhatsapp Boolean @default(false)
+
+  eventId      Int
+  event        Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  qrCode       String?           @unique // encrypted AES string
+  scannedCount Int               @default(0)
+  allocations  TableAllocation[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  user         User?             @relation(fields: [userId], references: [id])
+  userId       String?
+}
+
+// ----------------------------
+//        EVENT STATS
+// ----------------------------
+model EventStats {
+  id                 Int      @id @default(autoincrement())
+  eventId            Int      @unique
+  event              Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  totalInvitations   Int      @default(0)
+  totalCapacity      Int      @default(0) // sum of all table capacities
+  totalPeople        Int      @default(0)
+  totalScanned       Int      @default(0)
+  totalAssignedSeats Int      @default(0)
+  availableSeats     Int      @default(0)
+  updatedAt          DateTime @updatedAt
+}
+
+// ----------------------------
+//          TERMINAL
+// ----------------------------
+model Terminal {
+  id        Int       @id @default(autoincrement())
+  name      String
+  code      String    @unique
+  eventId   Int
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  isActive  Boolean   @default(true) // Pour désactivation manuelle
+  deletedAt DateTime? // Soft delete
+  logs      ScanLog[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// ----------------------------
+//          SCAN LOG
+// ----------------------------
+model ScanLog {
+  id            Int       @id @default(autoincrement())
+  eventCode     String
+  invitationId  Int?
+  guestName     String?
+  status        String
+  errorMessage  String?
+  scannedAt     DateTime  @default(now())
+  terminalCode  String?
+  terminalId    Int?
+  terminal      Terminal? @relation(fields: [terminalId], references: [id], onDelete: Cascade)
+  assignedTable String?
+}
+
+// ----------------------------
+//          WHATSAPP QUEUE
+// ----------------------------
+enum QueueStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model WhatsappQueue {
+  id           String      @id @default(uuid())
+  eventId      String
+  guestId      String
+  phoneNumber  String
+  messageText  String      @db.Text
+  qrCodeUrl    String      @db.Text
+  status       QueueStatus @default(PENDING)
+  attempts     Int         @default(0)
+  errorMessage String?     @db.Text
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([status])
+}
+
+model WhatsappSession {
+  id   String @id
+  data String @db.Text
+}

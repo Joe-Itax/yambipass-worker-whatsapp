@@ -22,7 +22,6 @@ app.get("/api/ping", (req, res) => {
 
 app.post("/api/trigger-worker", requireApiKey, (req, res) => {
   console.log("⚡ Signal reçu de Next.js ! Force le réveil du worker...");
-  // res.status(200).json({ message: "Worker notifié avec succès" });
   if (globalSock) {
     // On lance le worker immédiatement sans attendre les 10s
     startWorker(globalSock);
@@ -42,7 +41,7 @@ async function connectToWhatsApp() {
   const sock = makeWASocket({
     auth: state,
     printQRInTerminal: false,
-    logger: pino({ level: "info" }),
+    logger: pino({ level: "silent" }),
   });
 
   sock.ev.on("creds.update", saveCreds);

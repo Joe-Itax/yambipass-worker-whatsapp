@@ -11,6 +11,7 @@ import prisma from "./lib/prisma.js";
 
 const app = express();
 const port = process.env.PORT || 3001;
+let globalSock: any = null;
 
 app.use(express.json());
 
@@ -20,8 +21,15 @@ app.get("/api/ping", (req, res) => {
 });
 
 app.post("/api/trigger-worker", requireApiKey, (req, res) => {
-  console.log("⚡ Signal reçu de Next.js !");
-  res.status(200).json({ message: "Worker notifié avec succès" });
+  console.log("⚡ Signal reçu de Next.js ! Force le réveil du worker...");
+  // res.status(200).json({ message: "Worker notifié avec succès" });
+  if (globalSock) {
+    // On lance le worker immédiatement sans attendre les 10s
+    startWorker(globalSock);
+    res.status(200).json({ message: "Worker notifié et réveillé" });
+  } else {
+    res.status(503).json({ message: "Bot WhatsApp non connecté" });
+  }
 });
 
 // Nom de la session
@@ -34,7 +42,7 @@ async function connectToWhatsApp() {
   const sock = makeWASocket({
     auth: state,
     printQRInTerminal: false,
-    logger: pino({ level: "silent" }),
+    logger: pino({ level: "info" }),
   });
 
   sock.ev.on("creds.update", saveCreds);
@@ -97,6 +105,7 @@ async function connectToWhatsApp() {
     // 3. Connexion réussie
     else if (connection === "open") {
       console.log("✅ Bot WhatsApp connecté et prêt !");
+      globalSock = sock;
       startWorker(sock);
     }
   });

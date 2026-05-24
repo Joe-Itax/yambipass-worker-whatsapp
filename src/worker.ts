@@ -1,6 +1,8 @@
 import { delay, type WASocket } from "@whiskeysockets/baileys";
 import prisma from "./lib/prisma.js";
 
+let isProcessing = false;
+
 export async function processNextMessage(sock: WASocket): Promise<boolean> {
   const job = await prisma.whatsappQueue.findFirst({
     where: { status: "PENDING" },
@@ -71,10 +73,22 @@ export async function processNextMessage(sock: WASocket): Promise<boolean> {
 }
 
 export async function startWorker(sock: WASocket) {
-  let hasMore = true;
-  while (hasMore) {
-    hasMore = await processNextMessage(sock);
+  if (isProcessing) return; // Si déjà en train de tourner, on ignore
+  isProcessing = true;
+
+  try {
+    let hasMore = true;
+    while (hasMore) {
+      hasMore = await processNextMessage(sock);
+    }
+  } catch (error: any) {
+    console.error(
+      "❌ [Worker] Erreur critique (ex: perte de connexion DB):",
+      error.message,
+    );
+  } finally {
+    isProcessing = false;
+    // La magie est ici : on relance toujours le chronomètre, même après un crash
+    setTimeout(() => startWorker(sock), 10000);
   }
-  // File vide : on revérifie dans 10 secondes
-  setTimeout(() => startWorker(sock), 10000);
 }

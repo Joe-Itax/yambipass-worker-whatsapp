@@ -104,7 +104,7 @@ async function connectToWhatsApp() {
       version,
       printQRInTerminal: false,
       logger: pino({
-        level: "info",
+        level: "silent",
       }),
     });
 
@@ -150,9 +150,9 @@ async function connectToWhatsApp() {
         // Le socket actuel n'est plus utilisable.
         globalSock = null;
 
-        console.dir(lastDisconnect, {
-          depth: null,
-        });
+        // console.dir(lastDisconnect, {
+        //   depth: null,
+        // });
 
         const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
 

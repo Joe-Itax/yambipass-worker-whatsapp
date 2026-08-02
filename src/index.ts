@@ -61,8 +61,11 @@ async function connectToWhatsApp() {
     if (connection === "close") {
       const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
 
+      const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 405;
+
       // On ne tente de se reconnecter QUE si la déconnexion n'est pas un "Logged Out" volontaire
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      // const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+      const shouldReconnect = !isLoggedOut;
 
       console.log(
         `[WhatsApp] Connexion fermée (Code: ${statusCode}). Reconnexion automatique : ${shouldReconnect}`,

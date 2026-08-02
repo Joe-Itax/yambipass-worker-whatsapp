@@ -61,10 +61,9 @@ async function connectToWhatsApp() {
     if (connection === "close") {
       const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
 
-      const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 405;
+      const isLoggedOut =
+        statusCode === DisconnectReason.loggedOut || statusCode === 405;
 
-      // On ne tente de se reconnecter QUE si la déconnexion n'est pas un "Logged Out" volontaire
-      // const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
       const shouldReconnect = !isLoggedOut;
 
       console.log(
@@ -77,7 +76,8 @@ async function connectToWhatsApp() {
           console.log("🔄 Tentative de reconnexion réseau...");
           connectToWhatsApp();
         }, 8000);
-      } else if (statusCode === DisconnectReason.loggedOut) {
+      } else if (isLoggedOut) {
+        // Correction de la logique ici
         // AUTOMATION : L'utilisateur a supprimé l'appareil depuis son téléphone
         console.log(
           "⚠️ Appareil déconnecté depuis le téléphone. Nettoyage automatique de la session en DB...",
